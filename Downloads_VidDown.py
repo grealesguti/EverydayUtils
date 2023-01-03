@@ -1,6 +1,8 @@
 import argparse
 import youtube_dl
 from yt_dlp import YoutubeDL
+from concurrent.futures import ThreadPoolExecutor
+
 
 print('Modules loaded')
 
@@ -11,10 +13,24 @@ def parse_args():
     parser.add_argument('--url-list', '-l', help='Text file with list of URLs')
     parser.add_argument('--output', '-o', help='Output file name (default: <title>.mp4)')
     parser.add_argument('--audio', '-a', action='store_true', help='Download audio only', default=False)    
+    parser.add_argument('--playlist', '-pl', action='store_true', help='Download full playlist', default=False)    
     parser.add_argument('--resolution', '-r', type=int, help='Maximum video resolution in pixels', default=360)
     parser.add_argument('--outdir', '-od', help='Output directory', default='Downloads')
     parser.add_argument('--subtitles', '-s', action='store_true', help='Download subtitles', default=False)
+    parser.add_argument('--processors', '-p', type=int, help='Number of processors', default=1)
     return parser.parse_args()
+
+def download_playlist(playlist_url, output_dir, max_res, subtitles):
+    ydl_opts = {
+        'format': f'bestvideo[height<={max_res}]+bestaudio/best[height<={max_res}]',     
+        'playliststart': 1,
+        'playlistend': None,
+        'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
+        'ignoreerrors': True,
+    }
+
+    with YoutubeDL(ydl_opts) as ydl:
+        ydl.download([playlist_url])
 
 def download_video(url, output, max_res, subtitles):
     ydl_opts = {
@@ -27,7 +43,12 @@ def download_video(url, output, max_res, subtitles):
         ydl_opts['writesubtitles'] = True
         ydl_opts['allsubtitles'] = True
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        info = ydl.extract_info(url, download=False)
+        if 'entries' in info:
+            print('Entries:'+info['entries'])
+            ydl.download_all(info['entries'])
+        else:
+            ydl.download([url])
 
 def download_audio(url, output):
     ydl_opts = {
@@ -40,8 +61,18 @@ def download_audio(url, output):
         }],
     }
     with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
+        info = ydl.extract_info(url, download=False)
+        if 'entries' in info:
+            print('Entries: '+info['entries'])
+            ydl.download_all(info['entries'])
+        else:
+            ydl.download([url])
+            
+def download_audio_parallel(urls, output_files, num_processors):
+    with ThreadPoolExecutor(max_workers=num_processors) as executor:
+        executor.map(download_audio, urls, output_files)
 
+        
 print("MAIN START")
 args = parse_args()
 url = args.url
@@ -55,7 +86,7 @@ if url:
             print('TITLE: '+title)
         if args.output is None:
             if args.audio:
-                output = f'{args.outdir}/MP3/{title}.mp3'
+                output = f'{args.outdir}/MP3/{title}.mp3'                
             else:
                 output = f'{args.outdir}/MP4/{title}.mp4'
         else:
@@ -63,6 +94,8 @@ if url:
         # Download single video
         if args.audio:
                         download_audio(url, output)
+        elif args.playlist:
+                        download_playlist(url, args.outdir, resolution, args.subtitles)
         else:
                         download_video(url, output, resolution, args.subtitles)
 elif url_list:
@@ -82,6 +115,8 @@ elif url_list:
                         output = f'{args.outdir}/MP4/{title}.mp4'
                 if args.audio:
                             download_audio(url, output)
+                elif args.playlist:
+                            download_playlist(url, args.outdir, resolution, args.subtitles)
                 else:
                             download_video(url, output, resolution, args.subtitles)
 else:

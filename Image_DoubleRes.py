@@ -12,8 +12,6 @@ def double_resolution(lr_image_path, hr_image_path):
   # Save the high-resolution image
   cv2.imwrite(hr_image_path, hr_image)
 
-
-
 def double_resolution(lr_image_path, hr_image_path):
   # Load the low-resolution image
   lr_image = imread(lr_image_path)
@@ -24,7 +22,6 @@ def double_resolution(lr_image_path, hr_image_path):
 
   # Save the high-resolution image
   imsave(hr_image_path, hr_image)
-
 
 def parse_args():
   # Create an argument parser
