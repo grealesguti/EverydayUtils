@@ -1,3 +1,8 @@
+"""
+Requirements
+mamba install yt-dlp
+mamba install ffmpeg
+"""
 import argparse
 import youtube_dl
 from yt_dlp import YoutubeDL
@@ -16,9 +21,26 @@ def parse_args():
     parser.add_argument('--playlist', '-pl', action='store_true', help='Download full playlist', default=False)    
     parser.add_argument('--resolution', '-r', type=int, help='Maximum video resolution in pixels', default=360)
     parser.add_argument('--outdir', '-od', help='Output directory', default='Downloads')
-    parser.add_argument('--subtitles', '-s', action='store_true', help='Download subtitles', default=False)
-    parser.add_argument('--processors', '-p', type=int, help='Number of processors', default=1)
+    parser.add_argument('--subtitles', '-s', action='store_true', help='Download subtitles (IF THERE ARE)', default=False)
+    parser.add_argument('--processors', '-p', type=int, help='Number of processors (NOT WORKING)', default=1)
     return parser.parse_args()
+
+def download_playlist_mp3(playlist_url, output_dir):
+    ydl_opts = {
+        'playliststart': 1,
+        'playlistend': None,
+        'format': 'bestaudio/best',
+        'outtmpl': f'{output_dir}/%(title)s.%(ext)s',
+        'ignoreerrors': True,
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
+    with YoutubeDL(ydl_opts) as ydl:
+        ydl.download([playlist_url])
 
 def download_playlist(playlist_url, output_dir, max_res, subtitles):
     ydl_opts = {
@@ -93,7 +115,10 @@ if url:
             output = args.output
         # Download single video
         if args.audio:
-                        download_audio(url, output)
+            if args.playlist:
+                download_playlist_mp3(url,f'{args.outdir}/MP3/')
+            else:
+                download_audio(url, output)
         elif args.playlist:
                         download_playlist(url, args.outdir, resolution, args.subtitles)
         else:
